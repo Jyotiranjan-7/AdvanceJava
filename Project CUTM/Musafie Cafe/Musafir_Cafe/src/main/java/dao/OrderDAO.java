@@ -1,65 +1,111 @@
 package dao;
 
 import config.DBConnection;
+
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
-    public class OrderDAO {
+public class OrderDAO {
 
-        private Connection con;
+    private Connection con;
 
-        public OrderDAO() {
-            con = DBConnection.getConnection();
-        }
+    public OrderDAO() {
+        con = DBConnection.getConnection();
+    }
 
-        // Place Order using Transaction
+    // =========================================================
+    // Place Order Using Transaction + Batch Processing
+    // =========================================================
+    public boolean placeOrder(int customerId) {
 
-        public boolean placeOrder(int customerId) {
+        String cartQuery =
+                "SELECT c.food_id, c.quantity, f.price, c.subtotal " +
+                        "FROM cart c " +
+                        "JOIN food f ON c.food_id = f.food_id " +
+                        "WHERE c.customer_id = ?";
 
-            String cartQuery =
-                    "SELECT c.food_id, " +
-                            "c.quantity, " +
-                            "f.price, " +
-                            "c.subtotal " +
-                            "FROM cart c " +
-                            "JOIN food f ON c.food_id = f.food_id " +
-                            "WHERE c.customer_id = ?";
+        String insertOrder =
+                "INSERT INTO orders " +
+                        "(customer_id, total_amount, order_date, status) " +
+                        "VALUES (?, ?, NOW(), ?)";
 
-            String insertOrder =
-                    "INSERT INTO orders(customer_id,total_amount,order_date,status) VALUES(?,?,NOW(),?)";
+        String insertOrderItem =
+                "INSERT INTO order_item " +
+                        "(order_id, food_id, quantity, price) " +
+                        "VALUES (?, ?, ?, ?)";
 
-            String insertOrderItem =
-                    "INSERT INTO order_item(order_id,food_id,quantity,price) VALUES(?,?,?,?)";
+        String deleteCart =
+                "DELETE FROM cart WHERE customer_id = ?";
 
-            String deleteCart =
-                    "DELETE FROM cart WHERE customer_id=?";
+        boolean oldAutoCommit = true;
 
-            try {
+        try {
 
-                con.setAutoCommit(false);
+            oldAutoCommit = con.getAutoCommit();
 
-                // Calculate Total Amount
+            // Start Transaction
+            con.setAutoCommit(false);
 
-                double total = 0;
+            // =================================================
+            // Step 1: Read Cart Items
+            // =================================================
 
-                PreparedStatement cartPs = con.prepareStatement(cartQuery);
+            List<CartItemData> cartItems = new ArrayList<>();
+
+            double total = 0;
+
+            try (PreparedStatement cartPs =
+                         con.prepareStatement(cartQuery)) {
+
                 cartPs.setInt(1, customerId);
 
-                ResultSet cartRs = cartPs.executeQuery();
+                try (ResultSet rs = cartPs.executeQuery()) {
 
-                while (cartRs.next()) {
-                    total += cartRs.getDouble("subtotal");
+                    while (rs.next()) {
+
+                        int foodId = rs.getInt("food_id");
+                        int quantity = rs.getInt("quantity");
+                        double price = rs.getDouble("price");
+                        double subtotal = rs.getDouble("subtotal");
+
+                        cartItems.add(
+                                new CartItemData(
+                                        foodId,
+                                        quantity,
+                                        price,
+                                        subtotal
+                                )
+                        );
+
+                        total += subtotal;
+                    }
                 }
+            }
 
-                if (total == 0) {
-                    System.out.println("Cart is Empty.");
-                    return false;
-                }
+            // =================================================
+            // Step 2: Check Empty Cart
+            // =================================================
 
-                // Insert Order
+            if (cartItems.isEmpty()) {
 
-                PreparedStatement orderPs =
-                        con.prepareStatement(insertOrder,
-                                Statement.RETURN_GENERATED_KEYS);
+                System.out.println("Cart is Empty.");
+
+                con.rollback();
+
+                return false;
+            }
+
+            // =================================================
+            // Step 3: Insert Order
+            // =================================================
+
+            int orderId;
+
+            try (PreparedStatement orderPs =
+                         con.prepareStatement(
+                                 insertOrder,
+                                 Statement.RETURN_GENERATED_KEYS)) {
 
                 orderPs.setInt(1, customerId);
                 orderPs.setDouble(2, total);
@@ -67,279 +113,480 @@ import java.sql.*;
 
                 orderPs.executeUpdate();
 
-                ResultSet key = orderPs.getGeneratedKeys();
+                try (ResultSet keyRs =
+                             orderPs.getGeneratedKeys()) {
 
-                int orderId = 0;
+                    if (keyRs.next()) {
 
-                if (key.next()) {
-                    orderId = key.getInt(1);
+                        orderId = keyRs.getInt(1);
+
+                    } else {
+
+                        throw new SQLException(
+                                "Unable to generate Order ID."
+                        );
+                    }
                 }
+            }
 
-                // Insert Order Items
+            // =================================================
+            // Step 4: Insert Order Items Using Batch
+            // =================================================
 
-                cartRs.beforeFirst();
+            try (PreparedStatement itemPs =
+                         con.prepareStatement(insertOrderItem)) {
 
-                while (cartRs.next()) {
-
-                    PreparedStatement itemPs =
-                            con.prepareStatement(insertOrderItem);
+                for (CartItemData item : cartItems) {
 
                     itemPs.setInt(1, orderId);
-                    itemPs.setInt(2, cartRs.getInt("food_id"));
-                    itemPs.setInt(3, cartRs.getInt("quantity"));
-                    itemPs.setDouble(4, cartRs.getDouble("price"));
+                    itemPs.setInt(2, item.foodId);
+                    itemPs.setInt(3, item.quantity);
+                    itemPs.setDouble(4, item.price);
 
-                    itemPs.executeUpdate();
+                    itemPs.addBatch();
                 }
 
-                // Clear Cart
+                itemPs.executeBatch();
+            }
 
-                PreparedStatement deletePs =
-                        con.prepareStatement(deleteCart);
+            // =================================================
+            // Step 5: Clear Customer Cart
+            // =================================================
+
+            try (PreparedStatement deletePs =
+                         con.prepareStatement(deleteCart)) {
 
                 deletePs.setInt(1, customerId);
 
                 deletePs.executeUpdate();
-
-
-                // Commit Transaction
-
-                con.commit();
-
-                System.out.println("--------------------------------");
-                System.out.println("Order Placed Successfully");
-                System.out.println("Order ID : " + orderId);
-                System.out.println("Total Bill : ₹" + total);
-                System.out.println("--------------------------------");
-
-                return true;
-
-            } catch (Exception e) {
-
-                try {
-                    con.rollback();
-                    System.out.println("Transaction Failed.");
-                    System.out.println("Rollback Successful.");
-                } catch (SQLException ex) {
-                    ex.printStackTrace();
-                }
-
-                e.printStackTrace();
             }
 
-            finally {
+            // =================================================
+            // Step 6: Commit Transaction
+            // =================================================
 
-                try {
-                    con.setAutoCommit(true);
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
+            con.commit();
 
+            System.out.println("\n====================================");
+            System.out.println("       ORDER PLACED SUCCESSFULLY");
+            System.out.println("====================================");
+            System.out.println("Order ID    : " + orderId);
+            System.out.println("Total Bill  : ₹" + total);
+            System.out.println("Status      : PLACED");
+            System.out.println("====================================");
+
+            return true;
+
+        } catch (SQLException e) {
+
+            // =================================================
+            // Rollback Transaction
+            // =================================================
+
+            try {
+
+                con.rollback();
+
+                System.out.println("\nTransaction Failed.");
+                System.out.println("Rollback Successful.");
+
+            } catch (SQLException rollbackException) {
+
+                System.out.println("Rollback Failed.");
+                rollbackException.printStackTrace();
             }
+
+            e.printStackTrace();
 
             return false;
-        }
 
-        // View All Orders
+        } finally {
 
-        public void viewAllOrders() {
-
-            String sql = "SELECT * FROM orders";
+            // =================================================
+            // Restore Auto Commit
+            // =================================================
 
             try {
 
-                PreparedStatement ps = con.prepareStatement(sql);
-
-                ResultSet rs = ps.executeQuery();
-
-                System.out.println("\n================ ALL ORDERS ================");
-
-                System.out.printf("%-10s %-12s %-15s %-22s %-15s\n",
-                        "Order ID",
-                        "Customer",
-                        "Amount",
-                        "Order Date",
-                        "Status");
-
-                while (rs.next()) {
-
-                    System.out.printf("%-10d %-12d %-15.2f %-22s %-15s\n",
-                            rs.getInt("order_id"),
-                            rs.getInt("customer_id"),
-                            rs.getDouble("total_amount"),
-                            rs.getTimestamp("order_date"),
-                            rs.getString("status"));
-                }
-
-                System.out.println("============================================");
+                con.setAutoCommit(oldAutoCommit);
 
             } catch (SQLException e) {
+
                 e.printStackTrace();
             }
-
         }
+    }
 
-        // View Customer Orders
+    // =========================================================
+    // View All Orders
+    // =========================================================
+    public void viewAllOrders() {
 
-        public void viewCustomerOrders(int customerId) {
+        String sql =
+                "SELECT * FROM orders ORDER BY order_id DESC";
 
-            String sql = "SELECT * FROM orders WHERE customer_id=?";
+        try (PreparedStatement ps =
+                     con.prepareStatement(sql);
 
-            try {
+             ResultSet rs = ps.executeQuery()) {
 
-                PreparedStatement ps = con.prepareStatement(sql);
+            System.out.println("\n================ ALL ORDERS ================");
 
-                ps.setInt(1, customerId);
+            System.out.printf(
+                    "%-10s %-12s %-15s %-22s %-15s%n",
+                    "Order ID",
+                    "Customer",
+                    "Amount",
+                    "Order Date",
+                    "Status"
+            );
 
-                ResultSet rs = ps.executeQuery();
+            System.out.println(
+                    "---------------------------------------------------------------"
+            );
+
+            while (rs.next()) {
+
+                System.out.printf(
+                        "%-10d %-12d %-15.2f %-22s %-15s%n",
+                        rs.getInt("order_id"),
+                        rs.getInt("customer_id"),
+                        rs.getDouble("total_amount"),
+                        rs.getTimestamp("order_date"),
+                        rs.getString("status")
+                );
+            }
+
+            System.out.println(
+                    "==============================================================="
+            );
+
+        } catch (SQLException e) {
+
+            e.printStackTrace();
+        }
+    }
+
+    // =========================================================
+    // View Customer Orders
+    // =========================================================
+    public void viewCustomerOrders(int customerId) {
+
+        String sql =
+                "SELECT * FROM orders " +
+                        "WHERE customer_id = ? " +
+                        "ORDER BY order_id DESC";
+
+        try (PreparedStatement ps =
+                     con.prepareStatement(sql)) {
+
+            ps.setInt(1, customerId);
+
+            try (ResultSet rs = ps.executeQuery()) {
 
                 System.out.println("\n========== CUSTOMER ORDERS ==========");
 
+                boolean found = false;
+
                 while (rs.next()) {
 
+                    found = true;
+
                     System.out.println("-------------------------------------");
-                    System.out.println("Order ID      : " + rs.getInt("order_id"));
-                    System.out.println("Total Amount  : ₹" + rs.getDouble("total_amount"));
-                    System.out.println("Order Date    : " + rs.getTimestamp("order_date"));
-                    System.out.println("Status        : " + rs.getString("status"));
+                    System.out.println(
+                            "Order ID     : " +
+                                    rs.getInt("order_id")
+                    );
+
+                    System.out.println(
+                            "Total Amount : ₹" +
+                                    rs.getDouble("total_amount")
+                    );
+
+                    System.out.println(
+                            "Order Date   : " +
+                                    rs.getTimestamp("order_date")
+                    );
+
+                    System.out.println(
+                            "Status       : " +
+                                    rs.getString("status")
+                    );
+                }
+
+                if (!found) {
+
+                    System.out.println("No Orders Found.");
                 }
 
                 System.out.println("-------------------------------------");
-
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
 
+        } catch (SQLException e) {
+
+            e.printStackTrace();
         }
+    }
 
-        // Search Order
+    // =========================================================
+    // Search Order
+    // =========================================================
+    public void searchOrder(int orderId) {
 
-        public void searchOrder(int orderId) {
+        String sql =
+                "SELECT * FROM orders WHERE order_id = ?";
 
-            String sql = "SELECT * FROM orders WHERE order_id=?";
+        try (PreparedStatement ps =
+                     con.prepareStatement(sql)) {
 
-            try {
+            ps.setInt(1, orderId);
 
-                PreparedStatement ps = con.prepareStatement(sql);
-
-                ps.setInt(1, orderId);
-
-                ResultSet rs = ps.executeQuery();
+            try (ResultSet rs = ps.executeQuery()) {
 
                 if (rs.next()) {
 
                     System.out.println("\n=========== ORDER DETAILS ===========");
 
-                    System.out.println("Order ID      : " + rs.getInt("order_id"));
-                    System.out.println("Customer ID   : " + rs.getInt("customer_id"));
-                    System.out.println("Amount        : ₹" + rs.getDouble("total_amount"));
-                    System.out.println("Order Date    : " + rs.getTimestamp("order_date"));
-                    System.out.println("Status        : " + rs.getString("status"));
+                    System.out.println(
+                            "Order ID     : " +
+                                    rs.getInt("order_id")
+                    );
 
-                    System.out.println("=====================================");
+                    System.out.println(
+                            "Customer ID  : " +
+                                    rs.getInt("customer_id")
+                    );
+
+                    System.out.println(
+                            "Amount       : ₹" +
+                                    rs.getDouble("total_amount")
+                    );
+
+                    System.out.println(
+                            "Order Date   : " +
+                                    rs.getTimestamp("order_date")
+                    );
+
+                    System.out.println(
+                            "Status       : " +
+                                    rs.getString("status")
+                    );
+
+                    System.out.println(
+                            "====================================="
+                    );
 
                 } else {
 
                     System.out.println("Order Not Found.");
-
                 }
-
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
 
+        } catch (SQLException e) {
+
+            e.printStackTrace();
+        }
+    }
+
+    // =========================================================
+    // Update Order Status
+    // =========================================================
+    public boolean updateOrderStatus(
+            int orderId,
+            String status) {
+
+        String sql =
+                "UPDATE orders SET status = ? " +
+                        "WHERE order_id = ?";
+
+        try (PreparedStatement ps =
+                     con.prepareStatement(sql)) {
+
+            ps.setString(1, status);
+            ps.setInt(2, orderId);
+
+            int row = ps.executeUpdate();
+
+            if (row > 0) {
+
+                System.out.println(
+                        "Order Status Updated Successfully."
+                );
+
+                return true;
+            }
+
+            System.out.println("Order Not Found.");
+
+        } catch (SQLException e) {
+
+            e.printStackTrace();
         }
 
-        // Update Order Status
+        return false;
+    }
 
-        public boolean updateOrderStatus(int orderId, String status) {
+    // =========================================================
+    // Delete Order
+    // =========================================================
+    public boolean deleteOrder(int orderId) {
 
-            String sql = "UPDATE orders SET status=? WHERE order_id=?";
+        String deleteItems =
+                "DELETE FROM order_item WHERE order_id = ?";
 
-            try {
+        String deleteOrder =
+                "DELETE FROM orders WHERE order_id = ?";
 
-                PreparedStatement ps = con.prepareStatement(sql);
+        try {
 
-                ps.setString(1, status);
+            con.setAutoCommit(false);
 
-                ps.setInt(2, orderId);
+            // First delete order items
+            // because order_item references orders
 
-                int row = ps.executeUpdate();
+            try (PreparedStatement itemPs =
+                         con.prepareStatement(deleteItems)) {
+
+                itemPs.setInt(1, orderId);
+                itemPs.executeUpdate();
+            }
+
+            // Then delete order
+
+            try (PreparedStatement orderPs =
+                         con.prepareStatement(deleteOrder)) {
+
+                orderPs.setInt(1, orderId);
+
+                int row = orderPs.executeUpdate();
 
                 if (row > 0) {
 
-                    System.out.println("Order Status Updated.");
+                    con.commit();
+
+                    System.out.println(
+                            "Order Deleted Successfully."
+                    );
 
                     return true;
+
+                } else {
+
+                    con.rollback();
+
+                    System.out.println(
+                            "Order Not Found."
+                    );
                 }
+            }
+
+        } catch (SQLException e) {
+
+            try {
+
+                con.rollback();
+
+            } catch (SQLException rollbackException) {
+
+                rollbackException.printStackTrace();
+            }
+
+            e.printStackTrace();
+
+        } finally {
+
+            try {
+
+                con.setAutoCommit(true);
 
             } catch (SQLException e) {
 
                 e.printStackTrace();
-
             }
-
-            return false;
         }
 
-        // Delete Order
+        return false;
+    }
 
-        public boolean deleteOrder(int orderId) {
+    // =========================================================
+    // Get Order Total
+    // =========================================================
+    public double getOrderTotal(int orderId) {
 
-            String sql = "DELETE FROM orders WHERE order_id=?";
+        String sql =
+                "SELECT total_amount " +
+                        "FROM orders " +
+                        "WHERE order_id = ?";
 
-            try {
+        try (PreparedStatement ps =
+                     con.prepareStatement(sql)) {
 
-                PreparedStatement ps = con.prepareStatement(sql);
+            ps.setInt(1, orderId);
 
-                ps.setInt(1, orderId);
-
-                int row = ps.executeUpdate();
-
-                if (row > 0) {
-
-                    System.out.println("Order Deleted Successfully.");
-
-                    return true;
-                }
-
-            } catch (SQLException e) {
-
-                e.printStackTrace();
-
-            }
-
-            return false;
-        }
-
-       // Get Order Total
-
-        public double getOrderTotal(int orderId) {
-
-            String sql = "SELECT total_amount FROM orders WHERE order_id=?";
-
-            try {
-
-                PreparedStatement ps = con.prepareStatement(sql);
-
-                ps.setInt(1, orderId);
-
-                ResultSet rs = ps.executeQuery();
+            try (ResultSet rs = ps.executeQuery()) {
 
                 if (rs.next()) {
 
                     return rs.getDouble("total_amount");
-
                 }
-
-            } catch (SQLException e) {
-
-                e.printStackTrace();
-
             }
 
-            return 0;
+        } catch (SQLException e) {
+
+            e.printStackTrace();
         }
 
+        return 0;
+    }
+
+    // =========================================================
+    // Check Whether Order Exists
+    // =========================================================
+    public boolean orderExists(int orderId) {
+
+        String sql =
+                "SELECT order_id " +
+                        "FROM orders " +
+                        "WHERE order_id = ?";
+
+        try (PreparedStatement ps =
+                     con.prepareStatement(sql)) {
+
+            ps.setInt(1, orderId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+
+                return rs.next();
+            }
+
+        } catch (SQLException e) {
+
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    // =========================================================
+    // Inner Class For Temporary Cart Data
+    // =========================================================
+    private static class CartItemData {
+
+        private int foodId;
+        private int quantity;
+        private double price;
+        private double subtotal;
+
+        public CartItemData(
+                int foodId,
+                int quantity,
+                double price,
+                double subtotal) {
+
+            this.foodId = foodId;
+            this.quantity = quantity;
+            this.price = price;
+            this.subtotal = subtotal;
+        }
     }
 }

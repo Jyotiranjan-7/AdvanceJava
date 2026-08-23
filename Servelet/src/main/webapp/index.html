@@ -2,25 +2,29 @@
 <html>
 
 <head>
-    <title>Student Registration</title>
+    <title>Student Registration and login</title>
 </head>
 
 <body>
 
-<h2>Student Registration Form</h2>
+<h2>Student Registration / Login</h2>
 
-<form action="student" method="get">
+<form action="student" method="post">
 
     Name:
     <input type="text" name="name">
     <br><br>
 
     Registration Number:
-    <input type="text" name="registrationNumber">
+    <input type="text" name="registrationNumber" required>
     <br><br>
 
     Email:
     <input type="email" name="email">
+    <br><br>
+
+    Password:
+    <input type="password" name="password" required>
     <br><br>
 
     Course:
@@ -33,7 +37,8 @@
 
     <br><br>
 
-    <input type="submit" value="Register">
+    <input type="submit" name="action" value="Register">
+    <input type="submit" name="action" value="Login">
 
 </form>
 

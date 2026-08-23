@@ -1,7 +1,6 @@
 package dao;
-
-import com.musafircafe.config.DBConnection;
-import com.musafircafe.model.Admin;
+import config.DBConnection;
+import model.Admin;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

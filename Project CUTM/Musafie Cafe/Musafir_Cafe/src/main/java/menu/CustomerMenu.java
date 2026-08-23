@@ -1,4 +1,5 @@
 package menu;
+
 import dao.CartDAO;
 import dao.CustomerDAO;
 import dao.FoodDAO;
@@ -58,11 +59,9 @@ public class CustomerMenu {
 
                 default:
                     System.out.println("Invalid Choice.");
-
             }
 
         } while (true);
-
     }
 
     //==========================================
@@ -84,7 +83,6 @@ public class CustomerMenu {
 
         System.out.println("Registration Successful.");
         System.out.println("Please Login Using Customer ID.");
-
     }
 
     //==========================================
@@ -103,9 +101,7 @@ public class CustomerMenu {
         } else {
 
             System.out.println("Customer Not Found.");
-
         }
-
     }
 
     //==========================================
@@ -175,11 +171,9 @@ public class CustomerMenu {
 
                 default:
                     System.out.println("Invalid Choice.");
-
             }
 
         } while (choice != 9);
-
     }
 
     //==========================================
@@ -198,11 +192,15 @@ public class CustomerMenu {
 
             System.out.println("Food Not Found.");
             return;
-
         }
 
         System.out.print("Enter Quantity : ");
         int quantity = sc.nextInt();
+
+        if (quantity <= 0) {
+            System.out.println("Quantity must be greater than 0.");
+            return;
+        }
 
         double subtotal = food.getPrice() * quantity;
 
@@ -214,38 +212,46 @@ public class CustomerMenu {
         cart.setSubtotal(subtotal);
 
         cartDAO.addToCart(cart);
-
     }
+
     //==========================================
     // Update Cart
     //==========================================
     private void updateCart() {
-        private void updateCart() {
 
-            cartDAO.viewCart(customerId);
+        cartDAO.viewCart(customerId);
 
-            System.out.print("Enter Cart ID : ");
-            int cartId = sc.nextInt();
+        System.out.print("Enter Cart ID : ");
+        int cartId = sc.nextInt();
 
-            System.out.print("Enter New Quantity : ");
-            int quantity = sc.nextInt();
+        System.out.print("Enter New Quantity : ");
+        int quantity = sc.nextInt();
 
-            int foodId = cartDAO.getFoodIdFromCart(cartId);
-
-            double price = foodDAO.getFoodPrice(foodId);
-
-            double subtotal = quantity * price;
-
-            if (cartDAO.updateQuantity(cartId, quantity, subtotal)) {
-
-                System.out.println("Cart Updated Successfully.");
-
-            } else {
-
-                System.out.println("Unable To Update Cart.");
-
-            }
+        if (quantity <= 0) {
+            System.out.println("Quantity must be greater than 0.");
+            return;
         }
+
+        int foodId = cartDAO.getFoodIdFromCart(cartId);
+
+        if (foodId == 0) {
+            System.out.println("Cart Item Not Found.");
+            return;
+        }
+
+        double price = foodDAO.getFoodPrice(foodId);
+
+        double subtotal = quantity * price;
+
+        if (cartDAO.updateQuantity(cartId, quantity, subtotal)) {
+
+            System.out.println("Cart Updated Successfully.");
+
+        } else {
+
+            System.out.println("Unable To Update Cart.");
+        }
+    }
 
     //==========================================
     // Remove Item From Cart
@@ -267,9 +273,7 @@ public class CustomerMenu {
         } else {
 
             System.out.println("Unable to Remove Item.");
-
         }
-
     }
 
     //==========================================
@@ -286,9 +290,7 @@ public class CustomerMenu {
         } else {
 
             System.out.println("Order Failed.");
-
         }
-
     }
 
     //==========================================
@@ -305,7 +307,6 @@ public class CustomerMenu {
 
             System.out.println("Invalid Order ID.");
             return;
-
         }
 
         System.out.println("Total Amount : ₹" + amount);
@@ -337,7 +338,6 @@ public class CustomerMenu {
             default:
                 System.out.println("Invalid Payment Mode.");
                 return;
-
         }
 
         Payment payment = new Payment();
@@ -356,9 +356,6 @@ public class CustomerMenu {
         } else {
 
             System.out.println("Payment Failed.");
-
         }
-
     }
 }
-

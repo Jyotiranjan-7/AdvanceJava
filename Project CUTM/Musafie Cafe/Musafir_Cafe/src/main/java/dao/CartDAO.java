@@ -1,7 +1,7 @@
 package dao;
 
-import com.musafircafe.config.DBConnection;
-import com.musafircafe.model.Cart;
+import config.DBConnection;
+import model.Cart;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

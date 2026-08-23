@@ -14,44 +14,41 @@ import java.io.IOException;
 @WebServlet("/student")
 public class StudentService extends HttpServlet {
 
-    protected void doGet(HttpServletRequest request,
-                         HttpServletResponse response)
+    protected void doPost(HttpServletRequest request,
+                          HttpServletResponse response)
             throws ServletException, IOException {
 
-        String name = request.getParameter("name");
+        String action = request.getParameter("action");
 
-        String registrationNumber =
-                request.getParameter("registrationNumber");
+        String registrationNumber = request.getParameter("registrationNumber");
 
-        String email =
-                request.getParameter("email");
-
-        String course =
-                request.getParameter("course");
-        System.out.println("Name: " + name);
-
-        System.out.println("Registration Number: " + registrationNumber);
-
-        System.out.println("Email: " + email);
-
-        System.out.println("Course: " + course);
-        Student student = new Student(
-                name,
-                registrationNumber,
-                email,
-                course
-        );
+        String password = request.getParameter("password");
 
         StudentDAO dao = new StudentDAO();
+        if ("Login".equals(action)) {
 
-        dao.saveStudent(student);
-        request.setAttribute("name", name);
-        request.setAttribute("registrationNumber", registrationNumber);
-        request.setAttribute("email", email);
-        request.setAttribute("course", course);
+            boolean result = dao.loginStudent(registrationNumber, password);
 
-        request.getRequestDispatcher("/login.jsp")
-                .forward(request, response);
+            if (result) {
+                response.getWriter().println("<h2>Login Successful</h2>");
+            } else {
+                response.getWriter().println("<h2>Login Failed</h2>");
+            }
 
+        }
+        else if("Register".equals(action)) {
+
+            String name = request.getParameter("name");
+
+            String email = request.getParameter("email");
+
+            String course = request.getParameter("course");
+
+            Student student = new Student(name, registrationNumber, email, course, password);
+
+            dao.saveStudent(student);
+
+            response.getWriter().println("<h2>Student Registered Successfully</h2>");
+        }
     }
 }

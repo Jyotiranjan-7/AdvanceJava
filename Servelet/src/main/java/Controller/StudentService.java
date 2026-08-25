@@ -5,6 +5,7 @@ import Entity.Student;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -31,6 +32,10 @@ public class StudentService extends HttpServlet {
 
             if (result) {
                 response.getWriter().println("<h2>Login Successful</h2>");
+                Cookie cookies=new Cookie("registrationNumber",registrationNumber);
+                cookies.setMaxAge(60*60);
+                response.addCookie(cookies);
+                response.sendRedirect("home");
             } else {
                 response.getWriter().println("<h2>Login Failed</h2>");
             }

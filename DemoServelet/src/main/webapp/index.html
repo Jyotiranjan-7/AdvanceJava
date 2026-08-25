@@ -9,38 +9,21 @@
 
 <h2>Student</h2>
 
-<form action="registerstd" method="get">
-    <button type="submit">Register Student</button>
-</form>
+<form action="registerstd" method="post">
+    <label>
+        <input type="text" name="redgNo" placeholder="Enter your Registration Number"><br>
 
-<form action="loginstd" method="get">
-    <button type="submit">Login Student</button>
-</form>
+        <input type="text" name="name" placeholder="Enter your Name"><br>
 
-<form action="viewResult" method="get">
-    <button type="submit">View Result</button>
-</form>
+        <input type="email" name="email" placeholder="Enter your Email"><br>
 
+        <input type="text" name="course" placeholder="Enter your Course"><br>
 
-<form action="viewAttendance" method="get">
-    <button type="submit">View Attendance</button>
-</form>
+        <input type="password" name="password" placeholder="Enter your Password"><br>
 
-
-<h2>Employee</h2>
-
-<form action="registerEmp" method="get">
-    <button type="submit">Register Employee</button>
+    </label>
 </form>
-
-<form action="loginEmp" method="get">
-    <button type="submit">Login Employee</button>
-</form>
-<form action="updateMark" method="get">
-    <button type="submit">Update Mark</button>
-</form>
-<form action="updateMark" method="get">
-    <button type="submit">Update Mark</button>
-</form>
+<button type="submit">Register</button>
+<a href="loginStd.html"><button type="submit">Login</button></a>
 </body>
 </html>

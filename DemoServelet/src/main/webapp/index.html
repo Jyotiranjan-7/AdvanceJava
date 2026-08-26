@@ -2,28 +2,40 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Student Management System</title>
 </head>
+
 <body>
+
 <h1>Student Management System</h1>
 
-<h2>Student</h2>
+<h2>Welcome</h2>
+<p>Please select your role to continue.</p>
 
-<form action="registerstd" method="post">
-    <label>
-        <input type="text" name="redgNo" placeholder="Enter your Registration Number"><br>
+<!-- Student Section -->
+<h3>Student</h3>
 
-        <input type="text" name="name" placeholder="Enter your Name"><br>
+<a href="loginStd.html">
+    <button type="button">Student Login</button>
+</a>
 
-        <input type="email" name="email" placeholder="Enter your Email"><br>
+<a href="Std_registration.html">
+    <button type="button">Student Registration</button>
+</a>
 
-        <input type="text" name="course" placeholder="Enter your Course"><br>
+<br><br>
 
-        <input type="password" name="password" placeholder="Enter your Password"><br>
+<!-- Employee Section -->
+<h3>Employee</h3>
 
-    </label>
-</form>
-<button type="submit">Register</button>
-<a href="loginStd.html"><button type="submit">Login</button></a>
+<a href="Emp_login.html">
+    <button type="button">Employee Login</button>
+</a>
+<a href="Emp_register.html">
+    <button type="button">Employee Registration</button>
+</a>
+
 </body>
 </html>

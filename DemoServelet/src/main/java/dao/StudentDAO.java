@@ -1,4 +1,5 @@
 package dao;
+import entity.Employee;
 import entity.Student;
 
 import java.sql.*;

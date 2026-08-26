@@ -29,5 +29,6 @@ public class RegisterStd extends HttpServlet {
 
         StudentDAO dao = new StudentDAO();
         dao.saveStudent(student);
+        resp.sendRedirect("loginStd.html");
     }
 }

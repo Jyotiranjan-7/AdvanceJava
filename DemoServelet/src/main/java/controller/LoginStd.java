@@ -23,7 +23,7 @@ public class LoginStd extends HttpServlet {
             Cookie cookies=new Cookie("registrationNumber",redgNo);
             cookies.setMaxAge(60*60);
             resp.addCookie(cookies);
-            resp.sendRedirect("home");
+            resp.sendRedirect("stdHome.html");
 
         }
         else {

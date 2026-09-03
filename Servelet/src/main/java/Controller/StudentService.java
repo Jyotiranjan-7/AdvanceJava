@@ -19,41 +19,19 @@ public class StudentService extends HttpServlet {
                           HttpServletResponse response)
             throws ServletException, IOException {
 
-        String action = request.getParameter("action");
-
-        String registrationNumber = request.getParameter("registrationNumber");
-
-        String password = request.getParameter("password");
-
-        StudentDAO dao = new StudentDAO();
-        if ("Login".equals(action)) {
-
-            boolean result = dao.loginStudent(registrationNumber, password);
-
-            if (result) {
-                response.getWriter().println("<h2>Login Successful</h2>");
-                Cookie cookies=new Cookie("registrationNumber",registrationNumber);
-                cookies.setMaxAge(60*60);
-                response.addCookie(cookies);
-                response.sendRedirect("home");
-            } else {
-                response.getWriter().println("<h2>Login Failed</h2>");
-            }
-
-        }
-        else if("Register".equals(action)) {
-
             String name = request.getParameter("name");
 
             String email = request.getParameter("email");
 
             String course = request.getParameter("course");
+            String registrationNumber=request.getParameter("registrationNumber");
+            String password=request.getParameter("password");
 
             Student student = new Student(name, registrationNumber, email, course, password);
-
+            StudentDAO dao=new StudentDAO();
             dao.saveStudent(student);
 
             response.getWriter().println("<h2>Student Registered Successfully</h2>");
-        }
+
     }
 }

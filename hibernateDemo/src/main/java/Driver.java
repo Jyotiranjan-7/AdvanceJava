@@ -1,9 +1,7 @@
 import entity.Student;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.EntityTransaction;
-import jakarta.persistence.Persistence;
+import jakarta.persistence.*;
 
+import java.util.List;
 import java.util.Scanner;
 
 public class Driver {
@@ -21,7 +19,9 @@ public class Driver {
             System.out.println("2.Update student");
             System.out.println("3.Find student by id");
             System.out.println("4.Delete student");
-            System.out.println("5.exit");
+            System.out.println("5.get all the data");
+            System.out.println("6.get specific data");
+            System.out.println("7.exit");
             choice=sc.nextInt();
             switch (choice){
                 case 1:boolean resultAdd=add();
@@ -42,7 +42,11 @@ public class Driver {
                         System.out.println("Data delete successful..");
                     }
                 break;
-                case 5:System.out.println("Exit from the program..");
+                case 5:getAll();
+                    break;
+                case 6:findData();
+                break;
+                case 7:System.out.println("Exit from the program..");
                 break;
                 default:
                     System.out.println("Not match..");
@@ -96,6 +100,17 @@ public class Driver {
         em.remove(student);
         et.commit();
         return true;
+    }
+    private static void getAll(){
+        Query query=em.createQuery("SELECT s FROM Student s");
+        List<Student>stdlist1 =query.getResultList();
+        System.out.println(stdlist1);
+    }
+    private static void findData(){
+    Query query =em.createQuery("SELECT s FROM Student s WHERE s.name LIKE :match");
+    query.setParameter("match","j%");
+    List<Student> stdlist2=query.getResultList();
+        System.out.println(stdlist2);
     }
 
 }
